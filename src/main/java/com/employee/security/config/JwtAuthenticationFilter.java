@@ -33,68 +33,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+
         String path = request.getRequestURI();
         if (path.startsWith("/api/public")) {
             filterChain.doFilter(request, response);
             return;
         }
-        String authorizationHeader = request.getHeader("Authorization");
-        if(authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")){
-            handleAuthenticationFailure(response,"Authorization header is missing or invalid");
-            return;
-        }
-        String jwt = authorizationHeader.substring(7);
-        String username = jwtService.extractUsername(jwt);
-        log.info("Extracted username: {}", username);
 
-        if (username == null || SecurityContextHolder.getContext().getAuthentication() != null) {
-            handleAuthenticationFailure(response, "User not found or token is invalid.");
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            handleAuthenticationFailure(response, "Authorization header is missing or invalid");
             return;
         }
 
-        if(path.startsWith("/api/private")){
-            processAdminAuthentication(jwt, username, request, response);
-        }
-
-        if(path.startsWith("/api/protected")){
-            processAuthentication(jwt, username, request, response);
-        }
-        filterChain.doFilter(request,response);
-    }
-
-    private void setAuthenticationContext(UserDetails userDetails, HttpServletRequest request){
-        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(
-                userDetails,
-                null,
-                userDetails.getAuthorities()
-        );
-        token.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-        SecurityContextHolder.getContext().setAuthentication(token);
-        log.info("Authentication context set for user: {}", userDetails.getUsername());
-    }
-
-    private void processAuthentication(String jwt, String username, HttpServletRequest request, HttpServletResponse response) throws IOException {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        if (jwtService.isTokenValid(jwt, userDetails)) {
-            setAuthenticationContext(userDetails, request);
-        } else {
+        String jwt = authHeader.substring(7);
+        String username;
+        try {
+            username = jwtService.extractUsername(jwt);
+        } catch (Exception e) {
             handleAuthenticationFailure(response, "Invalid JWT token.");
+            return;
         }
-    }
 
-    private void processAdminAuthentication(String jwt, String username, HttpServletRequest request, HttpServletResponse response) throws IOException {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        if (jwtService.isTokenValid(jwt, userDetails)) {
-            // Check if the user has ADMIN role
-            if (!userDetails.getAuthorities().contains(new SimpleGrantedAuthority("ADMIN"))) {
-                handleAuthenticationFailure(response, "Access denied: Admin privileges required.");
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if (jwtService.isTokenValid(jwt, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            } else {
+                handleAuthenticationFailure(response, "JWT token is invalid.");
                 return;
             }
-            setAuthenticationContext(userDetails, request);
-        } else {
-            handleAuthenticationFailure(response, "Invalid JWT token.");
         }
+
+        filterChain.doFilter(request, response);
     }
 
     private void handleAuthenticationFailure(HttpServletResponse response,String message) throws IOException {

@@ -3,6 +3,9 @@ package com.employee.security.service;
 import com.employee.security.config.JwtService;
 import com.employee.security.model.Conste;
 import com.employee.security.model.Employee;
+import com.employee.security.model.EmployeeRequest;
+import com.employee.security.model.Role;
+import com.employee.security.repository.RoleRepository;
 import com.employee.security.util.LoginRequest;
 import com.employee.security.util.Response;
 import com.employee.security.repository.EmployeeRepo;
@@ -24,14 +27,16 @@ public class EmployeeService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RoleRepository roleRepository;
 
-    public Employee createEmployee(Employee employee){
+    public Employee createEmployee(EmployeeRequest employee){
         String password = passwordEncoder.encode(employee.getPassword());
+        Role role = roleRepository.findByRole(employee.getRole()).orElseThrow(() -> new RuntimeException("Role not found"));
         Employee emp = Employee.builder()
                 .name(employee.getName())
                 .password(password)
                 .email(employee.getEmail())
-                .role(Conste.USER)
+                .role(role)
                 .build();
 
         employeeRepo.save(emp);

@@ -32,14 +32,8 @@ public class Employee implements UserDetails {
 
     private String password;
 
-    @Convert(converter = EnumConverter.class)
-    @Column(nullable = false)
-    private Conste role;
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singleton(new SimpleGrantedAuthority(role.name()));
-    }
+    @OneToOne
+    private Role role;
 
     @Override
     public String getUsername() {
@@ -49,6 +43,16 @@ public class Employee implements UserDetails {
     @Override
     public boolean isEnabled() {
         return UserDetails.super.isEnabled();
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        if (role == null || role.getPermissions() == null) {
+            return Collections.emptyList();
+        }
+        return role.getPermissions().stream()
+                .map(permission -> new SimpleGrantedAuthority(permission.getName().name()))
+                .toList();
     }
 
     @Override
