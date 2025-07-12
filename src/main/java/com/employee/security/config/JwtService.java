@@ -21,14 +21,32 @@ public class JwtService {
     @Value("${jwt.SECRET_KEY}")
     private String secretKey;
 
+    @Value("${jwt.EXPIRATION_TIME}")
+    private long expirationTime;
+
+    @Value("${jwt.REFRESH_EXPIRATION_TIME}")
+    private long refreshExpirationTime;
+
     public String generateToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails);
     }
 
+    public String generateRefreshToken(UserDetails userDetails) {
+        return generateRefreshToken(new HashMap<>(), userDetails);
+    }
+
     public String generateToken(Map<String,Object> claims, UserDetails employee) {
+       return buildToken(claims,employee,expirationTime);
+    }
+
+    public String generateRefreshToken(Map<String,Object> claims, UserDetails employee) {
+        return buildToken(claims,employee,refreshExpirationTime);
+    }
+
+    private String buildToken(Map<String,Object> claims, UserDetails employee,long expirationTime){
         long nowMillis = System.currentTimeMillis();
         Date now = new Date(nowMillis);
-        Date expiryDate = new Date(nowMillis + 1000 * 60 * 60 * 10); // 10 hours
+        Date expiryDate = new Date(nowMillis + expirationTime);
         claims.put("issuedAt", now);
         claims.put("expiration", expiryDate);
 
