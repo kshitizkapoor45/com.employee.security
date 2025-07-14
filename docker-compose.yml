@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: pg_db
+    restart: always
+    environment:
+      POSTGRES_USER: perfectkode
+      POSTGRES_PASSWORD: perfectkode
+      POSTGRES_DB: kapoor
+    ports:
+      - "5440:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: employee_security_app
+    depends_on:
+      - db
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/kapoor
+      DB_USERNAME: perfectkode
+      DB_PASSWORD: perfectkode
+    ports:
+      - "8080:8080"
+
+volumes:
+  pg_data:
